@@ -1,0 +1,44 @@
+# le dossier de doc et tout ses sous dossier, ceux d'aujourd'hui comme ceux
+# d'apres. sa reste en local, sa monte jamais.
+docs/
+
+# binaire compiler et bibliotheque native
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# fichier d'environement local : sa contien les vrai valeur, contrairement a
+# l'exemple qui lui reste suivi
+.env
+.env.*
+!.env.example
+
+# materiel cryptographique et secret sous toute ses forme
+*.key
+*.pem
+*.crt
+*.p12
+*.seed
+secrets/
+.dev/
+
+# sortie de test, de couverture et de profilage
+*.out
+*.test
+*.prof
+coverage/
+scratch/
+
+# rapport generer par les outil de mesure
+*-summary.json
+
+# fichier des editeur et des systeme d'exploitation
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db

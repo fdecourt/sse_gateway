@@ -1,0 +1,60 @@
+# on exclu absolument tout, et on remet apres seulement ce qui sert a compiller.
+# comme sa un fichier ajouter plus tard rentre jamais tout seul dans le contexte,
+# et cette liste dit ce qui entre, jamais ce qui exista a coter.
+*
+
+# les dependance du module go, obligatoire pour le telechargement et la verif
+!go.mod
+!go.sum
+
+# le code source du programe et ses test unitaire
+!cmd/
+!internal/
+
+# la suite d'integration jouer comme garde fou pendant le build
+!tests/
+
+# ------------------------------------------------------------------
+# retrait a l'interieur de ce qu'on vient de remettre
+# ------------------------------------------------------------------
+
+# outillage qui a besoin d'une pile vivante : sa sert a rien pendant le build
+tests/e2e/
+tests/harness/
+tests/k6/
+
+# les doc poser au milieu du code, aucun interet pour le compilateur
+**/*.md
+
+# fixture binaire et jeu de donner go que cette suite utilise pas
+**/testdata/
+
+# residu de compilation, de mesure et de systeme
+**/*.log
+**/*.out
+**/*.test
+**/*.prof
+**/*.exe
+**/*.dll
+**/*.so
+**/*.dylib
+**/.DS_Store
+
+# ------------------------------------------------------------------
+# ceinture et bretelle : sa doit jamais partir, meme si la liste blanche
+# du dessus changer un jour
+# ------------------------------------------------------------------
+
+# le dossier de doc et tout ses sous dossier
+docs/
+
+# tout ce qui ressemble a un secret ou a une clef
+.env
+.env.*
+.dev/
+secrets/
+**/*.key
+**/*.pem
+**/*.crt
+**/*.p12
+**/*.seed

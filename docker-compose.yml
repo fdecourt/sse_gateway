@@ -1,0 +1,55 @@
+services:
+  sse-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GO_VERSION: ${GO_VERSION:-1.27}
+        BUILD_VERSION: ${BUILD_VERSION:-0.0.1}
+        BUILD_COMMIT: ${BUILD_COMMIT:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-unknown}
+    image: ${SSE_IMAGE_NAME:-sse_gateway}:${SSE_IMAGE_TAG:-0.0.1}
+    container_name: ${SSE_CONTAINER_NAME:-sse-gateway-service}
+    restart: ${SSE_RESTART_POLICY:-unless-stopped}
+    ports:
+      - "${SSE_HOST_BIND_ADDRESS:-0.0.0.0}:${SSE_HOST_PORT:-8080}:${SSE_HTTP_LISTEN_PORT:-8080}"
+    env_file:
+      - ${SSE_ENV_FILE:-.env}
+    read_only: ${SSE_CONTAINER_READ_ONLY:-true}
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=${SSE_TMPFS_SIZE:-16m}
+    security_opt:
+      - no-new-privileges:${SSE_NO_NEW_PRIVILEGES:-true}
+    cap_drop:
+      - ALL
+    ulimits:
+      nofile:
+        soft: ${SSE_ULIMIT_NOFILE_SOFT:-131072}
+        hard: ${SSE_ULIMIT_NOFILE_HARD:-131072}
+    stop_grace_period: ${SSE_SHUTDOWN_GRACE_PERIOD:-30s}
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/sse-gateway", "-healthcheck"]
+      interval: ${SSE_HEALTHCHECK_INTERVAL:-10s}
+      timeout: ${SSE_HEALTHCHECK_TIMEOUT:-3s}
+      retries: ${SSE_HEALTHCHECK_RETRIES:-3}
+      start_period: ${SSE_HEALTHCHECK_START_PERIOD:-3s}
+    deploy:
+      resources:
+        limits:
+          cpus: '${SSE_CPU_LIMIT:-2.0}'
+          memory: ${SSE_MEM_LIMIT:-512M}
+          pids: ${SSE_PIDS_LIMIT:-2000}
+        reservations:
+          cpus: '${SSE_CPU_RESERVATION:-0.2}'
+          memory: ${SSE_MEM_RESERVATION:-64M}
+    networks:
+      - edge
+      - internal
+
+networks:
+  edge:
+    name: ${SSE_EDGE_NETWORK_NAME:-sse-edge-net}
+    driver: bridge
+  internal:
+    name: ${SSE_INTERNAL_NETWORK_NAME:-sse-internal-net}
+    driver: bridge

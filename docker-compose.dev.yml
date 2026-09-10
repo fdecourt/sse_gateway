@@ -1,0 +1,93 @@
+# Pile de développement et de test de bout en bout : passerelle SSE, bus
+# d'événements Valkey et microservice cryptographique post-quantique réel.
+#
+#   make docker-dev        # amorce les identifiants puis démarre la pile
+#   make test-e2e          # exécute la suite de bout en bout contre cette pile
+#   make docker-dev-down   # arrête tout
+#
+# Le fragment .dev/gateway.env porte la clé publique EdDSA que la passerelle doit
+# connaître pour valider les tickets. Il est produit par « make dev-keys » ; sans
+# lui, le pilote d'authentification JWT n'a aucune clé et le service refuse de
+# démarrer. Les ports sont décalés et liés à la boucle locale afin qu'un
+# « make run » puisse occuper 8080 pendant que la pile conteneurisée tourne.
+
+services:
+  valkey:
+    image: valkey/valkey:8.0-alpine
+    container_name: sse-dev-valkey
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:${SSE_DEV_VALKEY_PORT:-16379}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    networks:
+      - sse-dev-net
+
+  pq-crypto-service:
+    image: fdecourt/pq-crypto-service:${SSE_DEV_PQ_TAG:-latest}
+    container_name: sse-dev-pq-crypto
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=development
+      - ALGORITHM=ML-KEM-1024
+      # Le moteur simulé est proscrit : la pile de test doit exercer une
+      # véritable encapsulation ML-KEM, sans quoi les tests ne prouvent rien.
+      - MOCK_MODE=false
+    ports:
+      - "127.0.0.1:${SSE_DEV_CRYPTO_PORT:-18085}:8080"
+    networks:
+      - sse-dev-net
+
+  sse-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sse-gateway:dev
+    container_name: sse-dev-gateway
+    restart: unless-stopped
+    env_file:
+      - ${SSE_DEV_KEY_DIR:-.dev}/gateway.env
+    environment:
+      - SSE_ENVIRONMENT=development
+      - SSE_LOG_LEVEL=${SSE_DEV_LOG_LEVEL:-debug}
+      - SSE_EVENT_BUS_DRIVER=valkey_pubsub
+      - SSE_EVENT_BUS_VALKEY_ADDRESS=valkey:6379
+      - SSE_EVENT_BUS_VALKEY_CHANNEL_PATTERN=realtime.*
+      - SSE_CRYPTO_DRIVER=http
+      - SSE_CRYPTO_HTTP_BASE_URL=http://pq-crypto-service:8080
+      - SSE_CRYPTO_HTTP_BINARY_MODE=${SSE_DEV_CRYPTO_BINARY_MODE:-true}
+      - SSE_AUTH_DRIVER=jwt
+      - SSE_AUTH_JWT_ALGORITHM=EdDSA
+      - SSE_AUTH_JWT_AUDIENCE=sse-gateway
+      # Bornes relevées pour la charge : le banc d'essai ouvre plusieurs
+      # centaines de flux depuis une seule adresse et un même utilisateur.
+      - SSE_CONNECTION_RATE_LIMIT_RPS=${SSE_DEV_RATE_LIMIT_RPS:-5000}
+      - SSE_CONNECTION_RATE_LIMIT_BURST=${SSE_DEV_RATE_LIMIT_BURST:-5000}
+      - SSE_LIMIT_MAX_CONNECTIONS_PER_USER=${SSE_DEV_MAX_CONNECTIONS_PER_USER:-5000}
+      - SSE_LIMIT_MAX_PENDING_HANDSHAKES=${SSE_DEV_MAX_PENDING_HANDSHAKES:-5000}
+    ports:
+      - "127.0.0.1:${SSE_DEV_GATEWAY_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/sse-gateway", "-healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 2s
+    depends_on:
+      valkey:
+        condition: service_healthy
+      pq-crypto-service:
+        condition: service_healthy
+    networks:
+      - sse-dev-net
+
+networks:
+  sse-dev-net:
+    name: sse-dev-net
+    driver: bridge
